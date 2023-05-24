@@ -1,0 +1,100 @@
+version: '3.5'
+
+services:
+
+jbpm:
+image: jboss/jbpm-server-full:latest
+container_name: jbpm
+restart: always
+networks:
+- jbmnet
+ports:
+- 8001:8001
+environment:
+JBPM_DB_DRIVER=postgres
+JBPM_DB_HOST=127.0.0.1
+JBPM_DB_PORT=5432
+JBPM_DB_NAME=dev
+JBPM_DB_USER=dev
+JBPM_DB_PASSWORD=dev
+
+postgresql:
+image: postgres:${POSTGRES_VERSION}
+container_name: postgresql
+restart: always
+networks:
+- jbmnet
+ports:
+- 5432:5432
+environment:
+- POSTGRES_PASSWORD=dev
+- POSTGRES_USER=dev
+- POSTGRES_DB=dev
+- POSTGRES_HOST_AUTH_METHOD=md5
+volumes:
+- /opt/postgresql/:/var/lib/postgresql/data/
+
+nginx:
+image: nginx:alpine
+container_name: nginx
+restart: always
+networks:
+- jbmnet
+ports:
+- "80:80"
+volumes:
+- /etc/nginx.conf:/etc/nginx/nginx.conf
+- /etc/nginx/conf.d/:/etc/nginx/conf.d/jbpm.conf
+networks:
+- backend
+- frontend
+
+prometheus:
+image: prom/prometheus
+container_name: prometheus
+restart: always
+networks:
+- jbmnet
+ports:
+- "9090:9090"
+volumes:
+- ./prometheus.yml:/etc/prometheus/prometheus.yml
+command:
+- "--config.file=/etc/prometheus/prometheus.yml"
+
+grafana:
+image: grafana/grafana
+container_name: grafana
+restart: always
+networks:
+- jbmnet
+ports:
+- "3000:3000"
+environment:
+- GF_SECURITY_ADMIN_PASSWORD=supersecret
+volumes:
+- grafana-storage:/var/lib/grafana
+
+node-exporter:
+image: prom/node-exporter
+container_name: node-exporter
+restart: always
+networks:
+- jbmnet
+volumes:
+- /proc:/host/proc:ro
+- /sys:/host/sys:ro
+- /:/rootfs:ro
+command:
+- "--path.procfs=/host/proc"
+- "--path.sysfs=/host/sys"
+- "--collector.filesystem.ignored-mount-points=^/(sys|proc|dev|host|etc)($$|/)"
+- "--collector.textfile.directory=/prometheus"
+
+volumes:
+grafana-storage:
+
+networks:
+  jbmnet:
+    external: true
+    name: minervanet
